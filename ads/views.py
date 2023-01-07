@@ -24,33 +24,37 @@ class AdsView(ListView):
 
         response = [{"id": ad.pk,
                      "name": ad.name,
-                     "author": ad.author,
-                     "price": ad.price} for ad in self.object_list]
+                     "author_id": ad.author,
+                     "price": ad.price,
+                     "category_id": ad.category} for ad in self.object_list]
         return JsonResponse(response, safe=False)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AdsCreateView(CreateView):
     model = Ads
-    fields = ['name', 'author', 'price', 'description', 'address', 'is_published']
+    fields = ['name', 'author', 'price', 'description', 'is_published', "category"]
 
     def post(self, request):
         ad_data = json.loads(request.body)
 
         ad = Ads.objects.create(name=ad_data['name'],
-                                author=ad_data['author'],
+                                author=ad_data['author_id'],
                                 price=ad_data['price'],
                                 description=ad_data['description'],
-                                address=ad_data['address'],
-                                is_published=ad_data['is_published'])
+                                is_published=ad_data['is_published'],
+                                category=ad_data['category_id'],
+                                )
 
         return JsonResponse({
             "id": ad.pk,
             "name": ad.name,
-            "author": ad.author,
+            "author_id": ad.author,
+            "author": ad.author.first_name,
             "price": ad.price,
             "description": ad.description,
-            "address": ad.address,
+            "category_id": ad.category,
+            "image": ad.image,
             "is_published": ad.is_published
         })
 
@@ -58,26 +62,34 @@ class AdsCreateView(CreateView):
 @method_decorator(csrf_exempt, name='dispatch')
 class AdsUpdateView(UpdateView):
     model = Ads
-    fields = ['name', 'author', 'price', 'description', 'address']
+    fields = ['name', 'author', 'price', 'description', 'category']
 
     def post(self, request):
         ad_data = json.loads(request.body)
 
-        ad = Ads.objects.create(name=ad_data['name'],
-                                author=ad_data['author'],
-                                price=ad_data['price'],
-                                description=ad_data['description'],
-                                address=ad_data['address'],
-                                is_published=ad_data['is_published'])
+        self.object.name = ad_data['name']
+        self.object.author = ad_data['author_id']
+        self.object.price = ad_data['price']
+        self.object.description = ad_data['description']
+        self.object.category = ad_data['category_id']
+
+        try:
+            self.object.full_clean()
+        except ValidationError as e:
+            return JsonResponse(e.message_dict, status=422)
+
+        self.object.save()
 
         return JsonResponse({
-            "id": ad.pk,
-            "name": ad.name,
-            "author": ad.author,
-            "price": ad.price,
-            "description": ad.description,
-            "address": ad.address,
-            "is_published": ad.is_published
+            "id": self.object.pk,
+            "name": self.object.name,
+            "author_id": self.object.author,
+            "author": self.object.author.first_name,
+            "price": self.object.price,
+            "description": self.object.description,
+            "category_id": self.object.category,
+            "image": self.object.image,
+            "is_published": self.object.is_published
         })
 
 
@@ -96,6 +108,15 @@ class AdsEntityView(DetailView):
             "address": self.object.address,
             "is_published": self.object.is_published
         })
+
+
+class AdsDeleteView(DeleteView):
+    model = Ads
+
+    def delete(self, request, *args, **kwargs):
+        super().delete(request, *args, **kwargs)
+
+        return JsonResponse({"status": "ok"}, status=200)
 
 
 class CategoriesView(ListView):

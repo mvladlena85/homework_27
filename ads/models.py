@@ -20,7 +20,6 @@ class Ads(models.Model):
     author = models.ForeignKey(User, on_delete=CASCADE, default=1)
     price = models.DecimalField(max_digits=8, decimal_places=2)
     description = models.CharField(max_length=1000)
-    address = models.CharField(max_length=500)
     category = models.ForeignKey(Categories, on_delete=CASCADE, default=1)
     image = models.ImageField('images/', default=None)
     is_published = models.BooleanField(default=True)
