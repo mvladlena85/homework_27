@@ -11,8 +11,9 @@ class Command(BaseCommand):
     filenames = [
         "users",
         "locations",
-        "ads",
         "categories",
+        "ads",
+
     ]
 
     def handle(self, *args, **options):

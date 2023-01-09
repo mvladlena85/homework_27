@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView
 
 from ads.models import Ads, Categories
+from users.models import User
 
 
 def get_base_url(request):
@@ -24,37 +25,36 @@ class AdsView(ListView):
 
         response = [{"id": ad.pk,
                      "name": ad.name,
-                     "author_id": ad.author,
+                     "author_id": ad.author.pk,
                      "price": ad.price,
-                     "category_id": ad.category} for ad in self.object_list]
+                     "category_id": ad.category.pk} for ad in self.object_list]
         return JsonResponse(response, safe=False)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AdsCreateView(CreateView):
     model = Ads
-    fields = ['name', 'author', 'price', 'description', 'is_published', "category"]
+    fields = ['name', 'author', 'price', 'description', 'is_published', 'category']
 
     def post(self, request):
         ad_data = json.loads(request.body)
 
         ad = Ads.objects.create(name=ad_data['name'],
-                                author=ad_data['author_id'],
+                                author=get_object_or_404(User, pk=ad_data['author_id']),
                                 price=ad_data['price'],
                                 description=ad_data['description'],
                                 is_published=ad_data['is_published'],
-                                category=ad_data['category_id'],
+                                category=get_object_or_404(Categories, pk=ad_data['category_id']),
                                 )
 
         return JsonResponse({
             "id": ad.pk,
             "name": ad.name,
-            "author_id": ad.author,
+            "author_id": ad.author.pk,
             "author": ad.author.first_name,
             "price": ad.price,
             "description": ad.description,
-            "category_id": ad.category,
-            "image": ad.image,
+            "category_id": ad.category.pk,
             "is_published": ad.is_published
         })
 
@@ -62,7 +62,7 @@ class AdsCreateView(CreateView):
 @method_decorator(csrf_exempt, name='dispatch')
 class AdsUpdateView(UpdateView):
     model = Ads
-    fields = ['name', 'author', 'price', 'description', 'category']
+    fields = ['name', 'author', 'price', 'description', 'is_published', 'category']
 
     def post(self, request):
         ad_data = json.loads(request.body)
@@ -83,12 +83,12 @@ class AdsUpdateView(UpdateView):
         return JsonResponse({
             "id": self.object.pk,
             "name": self.object.name,
-            "author_id": self.object.author,
+            "author_id": self.object.author.pk,
             "author": self.object.author.first_name,
             "price": self.object.price,
             "description": self.object.description,
-            "category_id": self.object.category,
-            "image": self.object.image,
+            "category_id": self.object.category.pk,
+            "image": self.object.image.url if self.object.image else None,
             "is_published": self.object.is_published
         })
 
@@ -102,10 +102,11 @@ class AdsEntityView(DetailView):
         return JsonResponse({
             "id": self.object.pk,
             "name": self.object.name,
-            "author": self.object.author,
+            "author": self.object.author.first_name,
             "price": self.object.price,
             "description": self.object.description,
-            "address": self.object.address,
+            "category": self.object.category.name,
+            "image": self.object.image.url if self.object.image else None,
             "is_published": self.object.is_published
         })
 
@@ -117,6 +118,30 @@ class AdsDeleteView(DeleteView):
         super().delete(request, *args, **kwargs)
 
         return JsonResponse({"status": "ok"}, status=200)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdsImageView(UpdateView):
+    model = Ads
+    fields = ['name', 'author', 'price', 'description', 'is_published', 'category', 'image']
+
+    def post(self, request, *args, **kwargs):
+        self.object = super().get_object()
+
+        self.object.image = request.FILES['image']
+        self.object.save()
+
+        return JsonResponse({
+            "id": self.object.pk,
+            "name": self.object.name,
+            "author": self.object.author.first_name,
+            "price": self.object.price,
+            "description": self.object.description,
+            "category": self.object.category.name,
+            "image": self.object.image.url if self.object.image else None,
+            "is_published": self.object.is_published
+        })
+
 
 
 class CategoriesView(ListView):
