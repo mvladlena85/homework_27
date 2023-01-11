@@ -22,7 +22,8 @@ from homework_27 import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include("ads.urls"))
+    path('', include("ads.urls")),
+    path('user/', include("users.urls")),
 ]
 
 if settings.DEBUG:

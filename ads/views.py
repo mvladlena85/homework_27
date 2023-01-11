@@ -1,14 +1,15 @@
 import json
 
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
-from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView
 
 from ads.models import Ads, Categories
+from homework_27 import settings
 from users.models import User
 
 
@@ -23,11 +24,21 @@ class AdsView(ListView):
     def get(self, request, *args, **kwargs):
         super().get(request, *args, **kwargs)
 
-        response = [{"id": ad.pk,
-                     "name": ad.name,
-                     "author_id": ad.author.pk,
-                     "price": ad.price,
-                     "category_id": ad.category.pk} for ad in self.object_list]
+        self.object_list = self.object_list.order_by('-price')
+
+        paginator = Paginator(self.object_list, per_page=settings.TOTAL_ON_PAGE)
+        page_number = request.GET.get('page')
+        page_object = paginator.get_page(page_number)
+
+        response = {
+            "items": [{"id": ad.pk,
+                       "name": ad.name,
+                       "author_id": ad.author.pk,
+                       "price": ad.price,
+                       "category_id": ad.category.pk} for ad in page_object],
+            "total": paginator.count,
+            "num_pages": paginator.num_pages}
+
         return JsonResponse(response, safe=False)
 
 
@@ -64,7 +75,7 @@ class AdsUpdateView(UpdateView):
     model = Ads
     fields = ['name', 'author', 'price', 'description', 'is_published', 'category']
 
-    def post(self, request):
+    def patch(self, request):
         ad_data = json.loads(request.body)
 
         self.object.name = ad_data['name']
@@ -111,8 +122,10 @@ class AdsEntityView(DetailView):
         })
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class AdsDeleteView(DeleteView):
     model = Ads
+    success_url = "/"
 
     def delete(self, request, *args, **kwargs):
         super().delete(request, *args, **kwargs)
@@ -143,13 +156,14 @@ class AdsImageView(UpdateView):
         })
 
 
-
 class CategoriesView(ListView):
     model = Categories
     queryset = Categories.objects.all()
 
     def get(self, request, *args, **kwargs):
         super().get(request, *args, **kwargs)
+
+        self.object_list = self.object_list.order_by('name')
 
         response = [{"id": cat.pk,
                      "name": cat.name} for cat in self.object_list]
@@ -209,8 +223,8 @@ class CategoriesEntityView(DetailView):
 
 class CategoryDeleteView(DeleteView):
     model = Categories
+    success_url = "/"
 
     def delete(self, request, *args, **kwargs):
         super().delete(request, *args, **kwargs)
-
         return JsonResponse({"status": "ok"}, status=200)
